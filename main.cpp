@@ -57,9 +57,11 @@ void Input( char *type, int *info, int *infoSize, bool *done )
 }
 
 std::vector< bullet_t > bullets;
+
 int main()
 {
 	window = SDL_CreateWindow( "Bullet", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, scrWdth, scrHght, SDL_WINDOW_SHOWN );
+	SDL_Renderer *renderer = SDL_CreateRenderer( window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
 
 	char type;
 	int parameters[50];
@@ -110,7 +112,7 @@ int main()
 			if( type == 'R' )
 			{
 				for( int i=0;i<bullets.size();i++ )
-					bullets.Reset();
+					bullets[i].Reset();
 			}
 			if( type == 'p' )
 			{
@@ -118,13 +120,15 @@ int main()
 				{
 					std::cout<<bullets[i].x<<" "<<bullets[i].y<<"\n";
 					for( int j=0;j<bullets[i].path.size();j++ )
-						std::cout<<"\t"<<bullets[i].path[j].angle<<" "<<bullets[i].path[j].speed<<" "<<bullets[i].path[j].distance<<"\n";
+						std::cout<<"\t"<<bullets[i].path[j].angle<<" "<<bullets[i].path[j].speed<<" "<<bullets[i].path[j].time<<"\n";
 				}
 			}
 
 			doneInput = false;
 			input = std::thread( Input, &type, parameters, &numParameters, &doneInput );
 		}
+		SDL_RenderPresent( renderer );
+		SDL_RenderClear( renderer );
 	}
 	SDL_Quit();
 	return 0;
