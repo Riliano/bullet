@@ -104,7 +104,9 @@ int main()
 			std::cin>>speed>>angle>>time;
 			bullets[own].path.push_back( {speed, time, angle} );
 		}
+		type = 0;
 	}
+
 //	std::thread input( Input, &type, parameters, &numParameters, &doneInput );
 
 	window = SDL_CreateWindow( "Bullet", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, scrWdth, scrHght, SDL_WINDOW_SHOWN );
@@ -126,7 +128,7 @@ int main()
 		}
 		if( SDL_GetTicks() - T >= 10 )
 		{
-			for( int i=0;i<bullets.size()-1;i++ )
+			for( int i=0;i<bullets.size();i++ )
 			{
 				if( !bullets[i].path.empty() )
 				{
@@ -145,7 +147,7 @@ int main()
 						bullets[i].pathIter++;
 						if( bullets[i].pathIter >= bullets[i].path.size() )
 							bullets[i].pathIter = 0;
-						std::cout<<i<<" "<<bullets[i].y<<" "<<sin<<" "<<cos<<" "<<bullets[i].pathIter<<std::endl;
+						//std::cout<<i<<" "<<bullets[i].y<<" "<<sin<<" "<<cos<<" "<<bullets[i].pathIter<<std::endl;
 					}
 				}
 			}
