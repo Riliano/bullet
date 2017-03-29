@@ -11,6 +11,24 @@ SDL_Event e;
 int scrWdth = 640;
 int scrHght = 480;
 
+struct point_t
+{
+	int x;
+	int y;
+
+	void Set(int mx, int my)
+       	{
+		x = mx;
+		y = my;
+	}
+	point_t( int myX, int myY )
+	{
+		Set(myX, myY);
+	}
+	point_t()
+	{}
+};
+
 struct path_t
 {
 	int speed;
@@ -20,33 +38,28 @@ struct path_t
 
 struct bullet_t
 {
-	int startX;
-	int startY;
-	int x;
-	int y;
+	point_t start;
+	point_t pos;
 	int pathIter = 0;
 	int lastPathStartTime = 0;
 	std::vector< path_t > path;
 
 	void Set( int myX, int myY )
 	{
-		x = myX;
-		y = myY;
+		pos.Set( myX, myY );
 	}
 
 	void Reset()
 	{
-		x = startX;
-		y = startY;
+		pos = start;
 		lastPathStartTime = 0;
 		pathIter = 0;
 	}
 
 	bullet_t( int myX, int myY )
 	{
-		startX = myX;
-		startY = myY;
 		Set( myX, myY );
+		start = pos;
 	}
 };
 
@@ -67,11 +80,11 @@ void Input( char *type, int *info, int *infoSize, bool *done )
 	*done = true;
 }
 
-void DrawCircle( SDL_Renderer *renderer, int x, int y, int r )
+void DrawCircle( SDL_Renderer *renderer, point_t point, int r )
 {
 	for( int i=0;i<360;i++ )
 	{
-		SDL_RenderDrawLine( renderer, x+std::sin(i)*r, y+std::cos(i)*r, x-std::sin(i)*r, y-std::cos(i)*r );
+		SDL_RenderDrawLine( renderer, point.x+std::sin(i)*r, point.y+std::cos(i)*r, point.x-std::sin(i)*r, point.y-std::cos(i)*r );
 	}
 //	SDL_RenderDrawLine( renderer, x, y+r, x, y-r );
 //	SDL_RenderDrawLine( renderer, x+r, y, x-r, y );
@@ -141,10 +154,9 @@ int main()
 				double cos = std::cos( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
 				double sin = std::sin( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
 
-				int newX = bullets[i].path[ bullets[i].pathIter ].speed;
-				int newY = 0;
+				int speed = bullets[i].path[ bullets[i].pathIter ].speed;
 
-				bullets[i].Set( bullets[i].x + (int)(newX*cos), bullets[i].y + (int)(newX*sin) );
+				bullets[i].Set( bullets[i].pos.x + (int)(speed*cos), bullets[i].pos.y + (int)(speed*sin) );
 				if( bullets[i].lastPathStartTime >= bullets[i].path[ bullets[i].pathIter ].time )
 				{
 					bullets[i].lastPathStartTime = 0;
@@ -158,8 +170,8 @@ int main()
 			T = SDL_GetTicks();
 		}
 		for( int i=0;i<bullets.size();i++ )
-			DrawCircle( renderer, bullets[i].x, bullets[i].y, BULLET_RADIUS );
-
+			DrawCircle( renderer, bullets[i].pos, BULLET_RADIUS );
+/*
 		if( doneInput )
 		{
 //			input.join();
@@ -207,6 +219,7 @@ int main()
 			doneInput = false;
 //			input = std::thread( Input, &type, parameters, &numParameters, &doneInput );
 		}
+*/
 		SDL_RenderPresent( renderer );
 		SDL_RenderClear( renderer );
 	}
