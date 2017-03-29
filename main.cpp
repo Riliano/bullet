@@ -38,6 +38,8 @@ struct bullet_t
 	{
 		x = startX;
 		y = startY;
+		lastPathStartTime = 0;
+		pathIter = 0;
 	}
 
 	bullet_t( int myX, int myY )
@@ -94,7 +96,8 @@ int main()
 		{
 			int x, y;
 			std::cin>>x>>y;
-			bullets.push_back( {x, y} );
+			bullet_t newBullet( x, y );
+			bullets.push_back( newBullet );
 		}
 		if( type == 'p' )
 		{
@@ -125,35 +128,37 @@ int main()
 				SDL_Quit();
 				return 0;
 			}
+			if( e.type == SDL_KEYDOWN )
+			{
+				for( int i=0;i<bullets.size();i++ )
+					bullets[i].Reset();
+			}
 		}
 		if( SDL_GetTicks() - T >= 10 )
 		{
 			for( int i=0;i<bullets.size();i++ )
 			{
-				if( !bullets[i].path.empty() )
+				double cos = std::cos( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
+				double sin = std::sin( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
+
+				int newX = bullets[i].path[ bullets[i].pathIter ].speed;
+				int newY = 0;
+
+				bullets[i].Set( bullets[i].x + (int)(newX*cos), bullets[i].y + (int)(newX*sin) );
+				if( bullets[i].lastPathStartTime >= bullets[i].path[ bullets[i].pathIter ].time )
 				{
-					double cos = std::cos( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
-					double sin = std::sin( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
-
-					int newX = bullets[i].path[ bullets[i].pathIter ].speed;
-					int newY = 0;
-
-					bullets[i].Set( bullets[i].x+(newX*cos - newY*sin), bullets[i].y+(newY*cos + newX*sin) );
-					DrawCircle( renderer, bullets[i].x, bullets[i].y, BULLET_RADIUS );
-					bullets[i].lastPathStartTime++;
-					if( bullets[i].lastPathStartTime >= bullets[i].path[ bullets[i].pathIter ].time )
-					{
-						bullets[i].lastPathStartTime = 0;
-						bullets[i].pathIter++;
-						if( bullets[i].pathIter >= bullets[i].path.size() )
-							bullets[i].pathIter = 0;
-						//std::cout<<i<<" "<<bullets[i].y<<" "<<sin<<" "<<cos<<" "<<bullets[i].pathIter<<std::endl;
-					}
+					bullets[i].lastPathStartTime = 0;
+					bullets[i].pathIter++;
+					if( bullets[i].pathIter >= bullets[i].path.size() )
+						bullets[i].pathIter = 0;
 				}
+				bullets[i].lastPathStartTime++;
 			}
 			time++;
 			T = SDL_GetTicks();
 		}
+		for( int i=0;i<bullets.size();i++ )
+			DrawCircle( renderer, bullets[i].x, bullets[i].y, BULLET_RADIUS );
 
 		if( doneInput )
 		{
