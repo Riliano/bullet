@@ -61,6 +61,22 @@ struct bullet_t
 		Set( myX, myY );
 		start = pos;
 	}
+	bullet_t()
+	{}
+};
+struct spawner_t
+{
+	int interval;
+	int localTime = 0;
+	int numBulletsToSpawn;
+	bullet_t bullet;
+
+	spawner_t( bullet_t bulletBlueprint, int myInterval, int num )
+	{
+		bullet = bulletBlueprint;
+		interval = myInterval;
+		numBulletsToSpawn = num;
+	}
 };
 
 void Input( char *type, int *info, int *infoSize, bool *done )
@@ -91,6 +107,7 @@ void DrawCircle( SDL_Renderer *renderer, point_t point, int r )
 }
 
 std::vector< bullet_t > bullets;
+std::vector< spawner_t > spawner;
 
 const int BULLET_RADIUS = 5;
 
@@ -102,6 +119,8 @@ int main()
 	int numParameters = 0;
 	bool doneInput = false;
 
+	std::vector< path_t > *pushIn = nullptr;
+
 	while( std::cin )
 	{
 		std::cin>>type;
@@ -111,14 +130,23 @@ int main()
 			std::cin>>x>>y;
 			bullet_t newBullet( x, y );
 			bullets.push_back( newBullet );
+			pushIn = &(bullets[ bullets.size()-1 ].path);
+		}
+		if( type == 's' )
+		{
+			int x, y;
+			int interval, numBullets;
+			std::cin>>x>>y>>interval>>numBullets;
+			bullet_t newBullet( x, y );
+			spawner_t newSpawner( newBullet, interval, numBullets );
+			spawner.push_back( newSpawner );
+			pushIn = &(spawner[ spawner.size()-1 ].bullet.path);
 		}
 		if( type == 'p' )
 		{
-			int own;
-			std::cin>>own;
 			int time, angle, speed;
 			std::cin>>speed>>angle>>time;
-			bullets[own].path.push_back( {speed, time, angle} );
+			pushIn->push_back( {speed, time, angle} );
 		}
 		type = 0;
 	}
@@ -149,6 +177,22 @@ int main()
 		}
 		if( SDL_GetTicks() - T >= 10 )
 		{
+			for( int i=0;i<spawner.size();i++ )
+			{
+				if( spawner[i].localTime >= spawner[i].interval )
+				{
+					spawner[i].localTime = 0;
+					bullets.push_back( spawner[i].bullet );
+					spawner[i].numBulletsToSpawn--;
+					if( spawner[i].numBulletsToSpawn <= 0 )
+					{
+						std::swap( spawner[i], spawner[ spawner.size()-1 ] );
+						spawner.pop_back();
+						i--;
+					}
+				}
+				spawner[i].localTime++;
+			}
 			for( int i=0;i<bullets.size();i++ )
 			{
 				double cos = std::cos( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
