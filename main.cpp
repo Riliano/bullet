@@ -42,6 +42,7 @@ struct bullet_t
 	point_t pos;
 	int pathIter = 0;
 	int lastPathStartTime = 0;
+	int remainingTime;
 	std::vector< path_t > path;
 
 	void Set( int myX, int myY )
@@ -56,10 +57,11 @@ struct bullet_t
 		pathIter = 0;
 	}
 
-	bullet_t( int myX, int myY )
+	bullet_t( int myX, int myY, int time )
 	{
 		Set( myX, myY );
 		start = pos;
+		remainingTime = time;
 	}
 	bullet_t()
 	{}
@@ -69,7 +71,14 @@ struct spawner_t
 	int interval;
 	int localTime = 0;
 	int numBulletsToSpawn;
+	int spawnedBullets = 0;
 	bullet_t bullet;
+
+	void Reset()
+	{
+		spawnedBullets = 0;
+		localTime = 0;
+	}
 
 	spawner_t( bullet_t bulletBlueprint, int myInterval, int num )
 	{
@@ -126,18 +135,18 @@ int main()
 		std::cin>>type;
 		if( type == 'b' )
 		{
-			int x, y;
-			std::cin>>x>>y;
-			bullet_t newBullet( x, y );
+			int x, y, time;
+			std::cin>>x>>y>>time;
+			bullet_t newBullet( x, y, time );
 			bullets.push_back( newBullet );
 			pushIn = &(bullets[ bullets.size()-1 ].path);
 		}
 		if( type == 's' )
 		{
 			int x, y;
-			int interval, numBullets;
-			std::cin>>x>>y>>interval>>numBullets;
-			bullet_t newBullet( x, y );
+			int interval, numBullets, time;
+			std::cin>>x>>y>>interval>>numBullets>>time;
+			bullet_t newBullet( x, y, time );
 			spawner_t newSpawner( newBullet, interval, numBullets );
 			spawner.push_back( newSpawner );
 			pushIn = &(spawner[ spawner.size()-1 ].bullet.path);
@@ -173,22 +182,21 @@ int main()
 			{
 				for( int i=0;i<bullets.size();i++ )
 					bullets[i].Reset();
+				for( int i=0;i<spawner.size();i++ )
+					spawner[i].Reset();
 			}
 		}
 		if( SDL_GetTicks() - T >= 10 )
 		{
 			for( int i=0;i<spawner.size();i++ )
 			{
-				if( spawner[i].localTime >= spawner[i].interval )
+				if( spawner[i].numBulletsToSpawn > 0 )
 				{
-					spawner[i].localTime = 0;
-					bullets.push_back( spawner[i].bullet );
-					spawner[i].numBulletsToSpawn--;
-					if( spawner[i].numBulletsToSpawn <= 0 )
+					if( spawner[i].localTime >= spawner[i].interval and spawner[i].spawnedBullets <= spawner[i].numBulletsToSpawn )
 					{
-						std::swap( spawner[i], spawner[ spawner.size()-1 ] );
-						spawner.pop_back();
-						i--;
+						spawner[i].localTime = 0;
+						bullets.push_back( spawner[i].bullet );
+						spawner[i].spawnedBullets++;
 					}
 				}
 				spawner[i].localTime++;
@@ -208,7 +216,14 @@ int main()
 					if( bullets[i].pathIter >= bullets[i].path.size() )
 						bullets[i].pathIter = 0;
 				}
+				bullets[i].remainingTime--;
 				bullets[i].lastPathStartTime++;
+				if( bullets[i].remainingTime <= 0 )
+				{
+					std::swap( bullets[i], bullets[ bullets.size()-1 ] );
+					bullets.pop_back();
+					i--;
+				}
 			}
 			time++;
 			T = SDL_GetTicks();
