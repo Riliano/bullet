@@ -29,11 +29,61 @@ struct point_t
 	{}
 };
 
+int Distance( point_t a, point_t b )
+{
+	int dist = (b.y-a.y)*(b.y-a.y) + (b.x-a.x)*(b.x-a.x);
+	dist = std::sqrt( dist );
+	return dist;
+}
+
+struct circle_t
+{
+	point_t center;
+	int radius;
+
+	void FindRadius( point_t point )
+	{
+		radius = Distance( point, center );
+	}
+
+	int FindAngle( int speed )
+	{
+		double perimeter = 4*M_PI*radius;
+		int angle = (double)(speed/perimeter) * 360;
+		return angle;
+	}
+
+	void Set( int mX, int mY )
+	{
+		center.Set( mX, mY );
+	}
+};
+
 struct path_t
 {
 	int speed;
 	int time;
 	int angle;
+	char type;
+
+	circle_t circle;
+
+	void Set( int ms, int mt, int ma )
+	{
+		speed = ms;
+		time = mt;
+		angle = ma;
+	}
+
+	path_t( char mType, int s, int t , int a, int x, int y )
+	{
+		type = mType;
+		Set( s, t, a );
+		if( type == 'c' )
+		{
+			circle.Set( x, y );
+		}
+	}
 };
 
 struct bullet_t
@@ -115,6 +165,25 @@ void DrawCircle( SDL_Renderer *renderer, point_t point, int r )
 //	SDL_RenderDrawLine( renderer, x+r, y, x-r, y );
 }
 
+void Move( bullet_t &bullt, path_t &pth )
+{
+	double cos = std::cos( (double)pth.angle*M_PI/180  );
+	double sin = std::sin( (double)pth.angle*M_PI/180  );
+
+	int x, y;
+	if( pth.type == 'l' )
+	{
+		x = bullt.pos.x + (int)(pth.speed*cos);
+		y = bullt.pos.y + (int)(pth.speed*sin);
+	}
+	if( pth.type == 'c' )
+	{
+		x = pth.circle.center.x + ( ( ( bullt.pos.x - pth.circle.center.x )*cos ) - ( ( bullt.pos.y - pth.circle.center.y )*sin ) );
+		y = pth.circle.center.y + ( ( ( bullt.pos.x - pth.circle.center.x )*sin ) + ( ( bullt.pos.y - pth.circle.center.y )*cos ) );
+	}
+	bullt.Set( x, y );
+}
+
 std::vector< bullet_t > bullets;
 std::vector< spawner_t > spawner;
 
@@ -153,9 +222,18 @@ int main()
 		}
 		if( type == 'p' )
 		{
+			char pathType;
 			int time, angle, speed;
+			int x, y;
+
+			std::cin>>pathType;
+			if( pathType == 'c' )
+				std::cin>>x>>y;
+
 			std::cin>>speed>>angle>>time;
-			pushIn->push_back( {speed, time, angle} );
+
+			path_t newPath( pathType, speed, time, angle, x, y );
+			pushIn->push_back( newPath );
 		}
 		type = 0;
 	}
@@ -203,18 +281,20 @@ int main()
 			}
 			for( int i=0;i<bullets.size();i++ )
 			{
-				double cos = std::cos( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
-				double sin = std::sin( (double)bullets[i].path[ bullets[i].pathIter ].angle*M_PI/180  );
+				Move( bullets[i], bullets[i].path[ bullets[i].pathIter ] );
 
-				int speed = bullets[i].path[ bullets[i].pathIter ].speed;
-
-				bullets[i].Set( bullets[i].pos.x + (int)(speed*cos), bullets[i].pos.y + (int)(speed*sin) );
 				if( bullets[i].lastPathStartTime >= bullets[i].path[ bullets[i].pathIter ].time )
 				{
 					bullets[i].lastPathStartTime = 0;
 					bullets[i].pathIter++;
 					if( bullets[i].pathIter >= bullets[i].path.size() )
 						bullets[i].pathIter = 0;
+					if(  bullets[i].path[ bullets[i].pathIter ].type == 'c' )
+					{
+						path_t *pth = &bullets[i].path[ bullets[i].pathIter ];
+						pth->circle.FindRadius( bullets[i].pos );
+						pth->angle = pth->circle.FindAngle( pth->speed );
+					}
 				}
 				bullets[i].remainingTime--;
 				bullets[i].lastPathStartTime++;
