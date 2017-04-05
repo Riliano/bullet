@@ -16,10 +16,15 @@ struct point_t
 	int x;
 	int y;
 
-	void Set(int mx, int my)
+	void Set( int mx, int my )
        	{
 		x = mx;
 		y = my;
+	}
+	void Update( int ux, int uy )
+	{
+		x += ux;
+		y += uy;
 	}
 	point_t( int myX, int myY )
 	{
@@ -90,16 +95,38 @@ struct bullet_t
 {
 	point_t start;
 	point_t pos;
-	int pathIter = 0;
+
+	int angleOffset;
+
 	int lastPathStartTime = 0;
 	int remainingTime;
-	std::vector< path_t > path;
 
+	int pathIter = 0;
+	std::vector< path_t > path;
+	path_t *curPath = nullptr;
+
+	void NextPath()
+	{
+		pathIter++;
+		if( pathIter >= path.size() )
+			pathIter = 0;
+
+		curPath = &( path[pathIter] );
+
+		if(  curPath->type == 'c' )
+		{
+			curPath->circle.FindRadius( pos );
+			curPath->angle = curPath->circle.FindAngle( curPath->speed );
+		}
+	}
+	void Update( point_t offset )
+	{
+		pos.Update( offset.x, offset.y );
+	}
 	void Set( int myX, int myY )
 	{
 		pos.Set( myX, myY );
 	}
-
 	void Reset()
 	{
 		pos = start;
@@ -118,11 +145,39 @@ struct bullet_t
 };
 struct spawner_t
 {
+	point_t pos;
+	int pathIter = 0;
+	std::vector< path_t > path;
+	path_t *curPath = &path[0];
+
+	int angleOffset = 0;
+
+	int chanePathTime;
 	int interval;
 	int localTime = 0;
 	int numBulletsToSpawn;
 	int spawnedBullets = 0;
-	bullet_t bullet;
+	bullet_t bulletBlueprint;
+
+	void NextPath()
+	{
+		pathIter++;
+		if( pathIter >= path.size() )
+			pathIter = 0;
+
+		curPath = &( path[pathIter] );
+	}
+
+	bullet_t CreateBullet()
+	{
+		bullet_t bullet = bulletBlueprint;
+		bullet.Update( pos );
+		if( angleOffset != 0 )
+			for( int i=0;i<bullet.path.size();i++ )
+				bullet.path[i].angle += angleOffset;
+
+		return bullet;
+	}
 
 	void Reset()
 	{
@@ -130,62 +185,44 @@ struct spawner_t
 		localTime = 0;
 	}
 
-	spawner_t( bullet_t bulletBlueprint, int myInterval, int num )
+	spawner_t( int mx, int my, int myInterval, int num )
 	{
-		bullet = bulletBlueprint;
+		pos.Set( mx, my );
+
 		interval = myInterval;
 		numBulletsToSpawn = num;
 	}
 };
 
-void Input( char *type, int *info, int *infoSize, bool *done )
-{
-	std::string input;
-	std::getline( std::cin, input );
-	std::stringstream ss( input );
-
-	ss>>*type;
-	int i=0;
-	while( ss )
-	{
-		ss>>info[i];
-		i++;
-	}
-	*infoSize = i-1;
-	*done = true;
-}
-
 void DrawCircle( SDL_Renderer *renderer, point_t point, int r )
 {
 	for( int i=0;i<360;i++ )
-	{
 		SDL_RenderDrawLine( renderer, point.x+std::sin(i)*r, point.y+std::cos(i)*r, point.x-std::sin(i)*r, point.y-std::cos(i)*r );
-	}
-//	SDL_RenderDrawLine( renderer, x, y+r, x, y-r );
-//	SDL_RenderDrawLine( renderer, x+r, y, x-r, y );
 }
 
-void Move( bullet_t &bullt, path_t &pth )
+void Move( point_t &pos, path_t pth )
 {
 	double cos = std::cos( (double)pth.angle*M_PI/180  );
 	double sin = std::sin( (double)pth.angle*M_PI/180  );
 
-	int x, y;
 	if( pth.type == 'l' )
 	{
-		x = bullt.pos.x + (int)(pth.speed*cos);
-		y = bullt.pos.y + (int)(pth.speed*sin);
+		int updateX = (int)(pth.speed*cos);
+		int updateY = (int)(pth.speed*sin);
+		pos.Update( updateX, updateY );
 	}
+	/*
 	if( pth.type == 'c' )
 	{
 		x = pth.circle.center.x + ( ( ( bullt.pos.x - pth.circle.center.x )*cos ) - ( ( bullt.pos.y - pth.circle.center.y )*sin ) );
 		y = pth.circle.center.y + ( ( ( bullt.pos.x - pth.circle.center.x )*sin ) + ( ( bullt.pos.y - pth.circle.center.y )*cos ) );
 	}
 	bullt.Set( x, y );
+	*/
 }
 
-std::vector< bullet_t > bullets;
 std::vector< spawner_t > spawner;
+std::vector< bullet_t > bullets;
 
 const int BULLET_RADIUS = 5;
 
@@ -197,7 +234,7 @@ int main()
 	int numParameters = 0;
 	bool doneInput = false;
 
-	std::vector< path_t > *pushIn = nullptr;
+	std::vector< path_t > *pushInP = nullptr;
 
 	while( std::cin )
 	{
@@ -207,18 +244,17 @@ int main()
 			int x, y, time;
 			std::cin>>x>>y>>time;
 			bullet_t newBullet( x, y, time );
-			bullets.push_back( newBullet );
-			pushIn = &(bullets[ bullets.size()-1 ].path);
+			spawner[ spawner.size()-1 ].bulletBlueprint = newBullet;
+			pushInP = &( spawner[ spawner.size()-1 ].bulletBlueprint.path );
 		}
 		if( type == 's' )
 		{
 			int x, y;
-			int interval, numBullets, time;
-			std::cin>>x>>y>>interval>>numBullets>>time;
-			bullet_t newBullet( x, y, time );
-			spawner_t newSpawner( newBullet, interval, numBullets );
+			int interval, numBullets;
+			std::cin>>x>>y>>interval>>numBullets;
+			spawner_t newSpawner( x, y, interval, numBullets );
 			spawner.push_back( newSpawner );
-			pushIn = &(spawner[ spawner.size()-1 ].bullet.path);
+			pushInP = &(spawner[ spawner.size()-1 ].path);
 		}
 		if( type == 'p' )
 		{
@@ -228,15 +264,17 @@ int main()
 
 			std::cin>>pathType;
 			if( pathType == 'c' )
-				std::cin>>x>>y;
-
-			std::cin>>speed>>angle>>time;
+				std::cin>>x>>y>>speed>>angle>>time;
+			if( pathType == 'l' )
+				std::cin>>speed>>angle>>time;
 
 			path_t newPath( pathType, speed, time, angle, x, y );
-			pushIn->push_back( newPath );
+			pushInP->push_back( newPath );
 		}
 		type = 0;
 	}
+	for( int i=0;i<spawner.size();i++ )
+		spawner[i].curPath = &spawner[i].path[0];
 
 //	std::thread input( Input, &type, parameters, &numParameters, &doneInput );
 
@@ -268,33 +306,36 @@ int main()
 		{
 			for( int i=0;i<spawner.size();i++ )
 			{
-				if( spawner[i].numBulletsToSpawn > 0 )
+				if( spawner[i].numBulletsToSpawn > spawner[i].spawnedBullets )
 				{
-					if( spawner[i].localTime >= spawner[i].interval and spawner[i].spawnedBullets <= spawner[i].numBulletsToSpawn )
+					if( spawner[i].localTime >= spawner[i].interval )
 					{
 						spawner[i].localTime = 0;
-						bullets.push_back( spawner[i].bullet );
+						bullets.push_back( spawner[i].CreateBullet() );
+						bullets[ bullets.size()-1 ].curPath = &bullets[ bullets.size()-1 ].path[0];
 						spawner[i].spawnedBullets++;
 					}
 				}
 				spawner[i].localTime++;
+				if( !spawner[i].path.empty() )
+				{
+					Move( spawner[i].pos, *spawner[i].curPath );
+					spawner[i].chanePathTime--;
+					if( spawner[i].chanePathTime <= 0 )
+					{
+						spawner[i].NextPath();
+						spawner[i].chanePathTime = spawner[i].curPath->time;
+					}
+				}
 			}
 			for( int i=0;i<bullets.size();i++ )
 			{
-				Move( bullets[i], bullets[i].path[ bullets[i].pathIter ] );
+				Move( bullets[i].pos, *bullets[i].curPath );
 
-				if( bullets[i].lastPathStartTime >= bullets[i].path[ bullets[i].pathIter ].time )
+				if( bullets[i].lastPathStartTime >= bullets[i].curPath->time )
 				{
 					bullets[i].lastPathStartTime = 0;
-					bullets[i].pathIter++;
-					if( bullets[i].pathIter >= bullets[i].path.size() )
-						bullets[i].pathIter = 0;
-					if(  bullets[i].path[ bullets[i].pathIter ].type == 'c' )
-					{
-						path_t *pth = &bullets[i].path[ bullets[i].pathIter ];
-						pth->circle.FindRadius( bullets[i].pos );
-						pth->angle = pth->circle.FindAngle( pth->speed );
-					}
+					bullets[i].NextPath();
 				}
 				bullets[i].remainingTime--;
 				bullets[i].lastPathStartTime++;
@@ -310,55 +351,7 @@ int main()
 		}
 		for( int i=0;i<bullets.size();i++ )
 			DrawCircle( renderer, bullets[i].pos, BULLET_RADIUS );
-/*
-		if( doneInput )
-		{
-//			input.join();
 
-			if( type == 'q' )
-			{
-				SDL_Quit();
-				return 0;
-			}
-			if( type == 'b' )
-			{
-				bullets.push_back( { parameters[0], parameters[1] } );
-			}
-			if( type == 'a' )
-			{
-				bullets[ parameters[0] ].path.push_back( { parameters[1], parameters[2], parameters[3] } );
-			}
-			if( type == 'r' )
-			{
-				for( int i = parameters[1];i<bullets[ parameters[0] ].path.size()-1;i++ )
-					bullets[ parameters[0] ].path[i] = bullets[parameters[0]].path[i+1];
-				bullets[parameters[0]].path.pop_back();
-			}
-			if( type == 'd' )
-			{
-				for( int i = parameters[0];i<bullets.size()-1;i++ )
-					bullets[i] = bullets[i+1];
-				bullets.pop_back();
-			}
-			if( type == 'R' )
-			{
-				for( int i=0;i<bullets.size();i++ )
-					bullets[i].Reset();
-			}
-			if( type == 'p' )
-			{
-				for( int i=0;i<bullets.size();i++ )
-				{
-					std::cout<<bullets[i].x<<" "<<bullets[i].y<<"\n";
-					for( int j=0;j<bullets[i].path.size();j++ )
-						std::cout<<"\t"<<bullets[i].path[j].angle<<" "<<bullets[i].path[j].speed<<" "<<bullets[i].path[j].time<<"\n";
-				}
-			}
-
-			doneInput = false;
-//			input = std::thread( Input, &type, parameters, &numParameters, &doneInput );
-		}
-*/
 		SDL_RenderPresent( renderer );
 		SDL_RenderClear( renderer );
 	}
