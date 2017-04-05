@@ -13,15 +13,15 @@ int scrHght = 480;
 
 struct point_t
 {
-	int x;
-	int y;
+	double x;
+	double y;
 
 	void Set( int mx, int my )
        	{
 		x = mx;
 		y = my;
 	}
-	void Update( int ux, int uy )
+	void Update( double ux, double uy )
 	{
 		x += ux;
 		y += uy;
@@ -83,11 +83,13 @@ struct path_t
 	path_t( char mType, int s, int t , int a, int x, int y )
 	{
 		type = mType;
-		Set( s, t, a );
+		time = t;
+		if( type == 'l' or type == 'c' )
+			Set( s, t, a );
 		if( type == 'c' )
-		{
 			circle.Set( x, y );
-		}
+		if( type == 'r' )
+			angle = a;
 	}
 };
 
@@ -207,8 +209,8 @@ void Move( point_t &pos, path_t pth )
 
 	if( pth.type == 'l' )
 	{
-		int updateX = (int)(pth.speed*cos);
-		int updateY = (int)(pth.speed*sin);
+		double updateX = (pth.speed*cos);
+		double updateY = (pth.speed*sin);
 		pos.Update( updateX, updateY );
 	}
 	/*
@@ -267,6 +269,8 @@ int main()
 				std::cin>>x>>y>>speed>>angle>>time;
 			if( pathType == 'l' )
 				std::cin>>speed>>angle>>time;
+			if( pathType == 'r' )
+				std::cin>>angle>>time;
 
 			path_t newPath( pathType, speed, time, angle, x, y );
 			pushInP->push_back( newPath );
@@ -319,7 +323,10 @@ int main()
 				spawner[i].localTime++;
 				if( !spawner[i].path.empty() )
 				{
-					Move( spawner[i].pos, *spawner[i].curPath );
+					if( spawner[i].curPath->type == 'r' )
+						spawner[i].angleOffset += spawner[i].curPath->angle;
+					else
+						Move( spawner[i].pos, *spawner[i].curPath );
 					spawner[i].chanePathTime--;
 					if( spawner[i].chanePathTime <= 0 )
 					{
