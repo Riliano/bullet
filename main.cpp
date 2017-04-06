@@ -187,10 +187,10 @@ struct spawner_t
 		localTime = 0;
 	}
 
-	spawner_t( int mx, int my, int myInterval, int num )
+	spawner_t( int mx, int my, int myAngle, int myInterval, int num )
 	{
 		pos.Set( mx, my );
-
+		angleOffset = myAngle;
 		interval = myInterval;
 		numBulletsToSpawn = num;
 	}
@@ -251,10 +251,10 @@ int main()
 		}
 		if( type == 's' )
 		{
-			int x, y;
+			int x, y, angle;
 			int interval, numBullets;
-			std::cin>>x>>y>>interval>>numBullets;
-			spawner_t newSpawner( x, y, interval, numBullets );
+			std::cin>>x>>y>>angle>>interval>>numBullets;
+			spawner_t newSpawner( x, y, angle, interval, numBullets );
 			spawner.push_back( newSpawner );
 			pushInP = &(spawner[ spawner.size()-1 ].path);
 		}
